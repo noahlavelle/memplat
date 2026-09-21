@@ -16,8 +16,6 @@ const int SINGLE_TILE_MODE = 0x0;
 const int RESERVED_TOP_CUTOFF = 0xF;
 // rows below reserved, inclusive; bottom two rows, 0-1
 const int RESERVED_BOTTOM_CUTOFF = 0x1;
-// maximum x value able to be encoded
-const int SCREEN_WIDTH = 0xF;
 
 namespace {
 // byte masks, splits byte groups into high and low parts; e.g x & y
@@ -32,33 +30,62 @@ int getMetatileHigh(int d) { return (d >> METATILE_SIZE_SHIFT) & METATILE_SIZE_M
 int getMetatileLow(int d) { return d & METATILE_SIZE_MASK; }
 } // namespace
 
-LevelParser::LevelParser(ByteReader reader) : reader(std::move(reader)) {}
+LevelParser::LevelParser(ByteReader reader) : reader(std::move(reader)) {
+    // populate both buffer slots on load
+    if (loadNextScreen()) {
+        loadNextScreen();
+    }
+}
 
-void LevelParser::loadScreen() {
+bool LevelParser::loadNextScreen() {
+    std::optional<int> screen_index;
+
     while (true) {
-        // coordinate byte: xxxxyyyy
-        auto coordinate_byte = reader.consume();
+        // coordinate byte: xxxxyyyy (peeked, not consumed until we know it's ours)
+        auto coordinate_byte = reader.peek();
         if (!coordinate_byte) {
+            if (!screen_index) {
+                // nothing loaded yet, so a terminator is not expected
+                buffers[((acc_x / SCREEN_TILE_WIDTH) + 1) & 1] = LevelBuffer{};
+                return false;
+            }
+            // we loaded data, so the sudden eof is expected
             throw LevelParseError("unexpected end of file while reading coordinate byte",
-                                   reader.position());
+                                  reader.position());
         }
         if (static_cast<int>(*coordinate_byte) == TERMINATOR) {
-            return;
+            reader.consume();
+            if (!screen_index) {
+                buffers[((acc_x / SCREEN_TILE_WIDTH) + 1) & 1] = LevelBuffer{};
+                return false;
+            }
+            return true;
         }
+
+        int x = getHigh(*coordinate_byte);
+        int candidate_screen = (acc_x + x) / SCREEN_TILE_WIDTH;
+
+        if (!screen_index) {
+            screen_index = candidate_screen;
+        } else if (candidate_screen != *screen_index) {
+            return true;
+        }
+
+        reader.consume();
 
         // object byte: ttttdddd
         auto object_byte = reader.consume();
         if (!object_byte) {
             throw LevelParseError("unexpected end of file while reading object byte",
-                                   reader.position());
+                                  reader.position());
         }
 
         loadObject(*coordinate_byte, *object_byte);
-
-        if (crossedScreenBoundary()) {
-            return;
-        }
     }
+}
+
+TileRef LevelParser::tileAt(int slot, int col, int row) const {
+    return buffers[slot].tiles[col][row];
 }
 
 void LevelParser::loadObject(std::byte coordinate_byte, std::byte object_byte) {
@@ -68,47 +95,30 @@ void LevelParser::loadObject(std::byte coordinate_byte, std::byte object_byte) {
     int type = getHigh(object_byte);
     int data = getLow(object_byte);
 
-    if (y >= RESERVED_TOP_CUTOFF || y <= RESERVED_BOTTOM_CUTOFF) {
-        parseReservedRow(type, data);
-    } else if (type == SINGLE_TILE_MODE) {
-        parseSingleTile(data);
-    } else {
-        parseMetaTile(type, data);
-    }
+    acc_x += x;
+    int column = acc_x % SCREEN_TILE_WIDTH;
 
-    levelXCounter += x;
+    if (y >= RESERVED_TOP_CUTOFF || y <= RESERVED_BOTTOM_CUTOFF) {
+        parseReservedRow(column, y, type, data);
+    } else if (type == SINGLE_TILE_MODE) {
+        parseSingleTile(column, y, data);
+    } else {
+        parseMetaTile(column, y, type, data);
+    }
 }
 
 // row has reserved meaning, override default type decoding
-void LevelParser::parseReservedRow(int type, int data) {
-    std::fprintf(stdout, "Reserved row object, type %d, data %d\n", type, data);
-}
+void LevelParser::parseReservedRow(int x, int y, int type, int data) {}
 
 // not a metatile, object byte: 0000tttt
-void LevelParser::parseSingleTile(int tile) {
-    std::fprintf(stdout, "Single tile object, tile %d\n", tile);
+void LevelParser::parseSingleTile(int x, int y, int tile) {
+    buffers[(acc_x / SCREEN_TILE_WIDTH) & 1].tiles[x][y] = tile;
 }
 
 // metatile, object byte: tttt(lx)(lx)(ly)(ly)
 // metatile length are either 0, 1, or 2; depending on the tile they map to 1x, 2x and 4x
 // mults, or predefined static sizes
-void LevelParser::parseMetaTile(int metatile, int data) {
+void LevelParser::parseMetaTile(int x, int y, int metatile, int data) {
     int lx = getMetatileHigh(data);
     int ly = getMetatileLow(data);
-
-    std::fprintf(stdout, "Metatile object, metatile %d, lx %d, ly %d\n", metatile, lx, ly);
-}
-
-// if the x counter is a multiple of screensize and the next object advances the position, stop
-bool LevelParser::crossedScreenBoundary() {
-    if (levelXCounter % SCREEN_WIDTH != 0) {
-        return false;
-    }
-    auto next_coordinate = reader.peek();
-    if (!next_coordinate) {
-        throw LevelParseError("unexpected end of file while checking screen boundary",
-                               reader.position());
-    }
-
-    return getHigh(*next_coordinate) != 0;
 }

@@ -1,79 +1,59 @@
+#include <cstdint>
 #include <cstdio>
 #include <exception>
 #include <fcntl.h>
-#include <stdexcept>
+#include <optional>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <vector>
 
 #include "ByteReader.hpp"
 #include "LevelParser.hpp"
+#include "Renderer.hpp"
+#include "Viewport.hpp"
 
-#define RGFW_IMPLEMENTATION
-#define RGFW_EGL
-#include "RGFW.h"
+/*
+TODO:
+Create concept of metatile
+Start resolving metatiles to tiles
+Write these resolved tiles onto the grid (will have to consider the bounding box of the metatile?)
+Come up with a format for tiles and metatiles
+Add the renderer, to stream from the screen and draw whatever tile is at each position
+*/
 
-#ifdef RGFW_MACOS
-#define GL_SILENCE_DEPRECATION
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-
-RGFW_window *initWindow() {
-    RGFW_init("memplat", RGFW_initEGL);
-
-    RGFW_glHints *hints = RGFW_getGlobalHints_OpenGL();
-    hints->major = 1;
-    hints->minor = 1;
-    RGFW_setGlobalHints_OpenGL(hints);
-
-    RGFW_window *win = RGFW_createWindow("memplat", 0, 0, 256, 240,
-                                         RGFW_windowEGL | RGFW_windowCenter | RGFW_windowNoResize);
-    if (!win) {
-        throw std::runtime_error("failed to create window");
-    }
-    RGFW_window_makeCurrentContext_EGL(win);
-    RGFW_window_setExitKey(win, RGFW_keyEscape);
-
-    return win;
-}
-
-void loadLevel(const char *path) {
-    auto reader = ByteReader::open(path);
-    auto parser = LevelParser(std::move(reader));
-    parser.loadScreen();
-}
+const int REFRESH_RATE = 60;
 
 int main(int argc, char **argv) {
-    RGFW_window *win;
+    RGFW_window *win = nullptr;
+    RGFW_surface *surface = nullptr;
+    std::vector<uint8_t> pixels;
+    std::optional<LevelParser> parser;
+    std::optional<Viewport> viewport;
+
     try {
         win = initWindow();
-        loadLevel("./data/levels/1-1.lvl");
+        pixels.resize(static_cast<size_t>(WINDOW_WIDTH) * WINDOW_HEIGHT * 3);
+        surface = createFrameSurface(win, pixels);
+
+        auto reader = ByteReader::open("./data/levels/1-1.lvl");
+        parser.emplace(std::move(reader));
+        viewport.emplace(*parser);
     } catch (const std::exception &e) {
         fprintf(stderr, "startup failed: %s\n", e.what());
         return 1;
     }
 
-    while (RGFW_window_shouldClose(win) == RGFW_FALSE) {
-        RGFW_pollEvents();
+    while (!windowShouldClose(win)) {
+        pollEvents();
+        viewport->advance(1);
+        renderFrame(*viewport, win, surface, pixels);
 
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glBegin(GL_TRIANGLES);
-        glColor3f(1.0f, 0.0f, 0.0f);
-        glVertex2f(-0.6f, -0.75f);
-        glColor3f(0.0f, 1.0f, 0.0f);
-        glVertex2f(0.6f, -0.75f);
-        glColor3f(0.0f, 0.0f, 1.0f);
-        glVertex2f(0.0f, 0.75f);
-        glEnd();
-        RGFW_window_swapBuffers_EGL(win);
-        glFlush();
+        usleep(1000000 / REFRESH_RATE);
     }
 
-    RGFW_window_close(win);
-    RGFW_deinit();
+    freeSurface(surface);
+    closeWindow(win);
+    shutdownRenderer();
 
     return 0;
 }

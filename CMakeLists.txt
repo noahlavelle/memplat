@@ -14,7 +14,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "-Os -DNDEBUG")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
@@ -23,6 +23,8 @@ set(
     src/Main.cpp
     src/LevelParser.cpp
     src/ByteReader.cpp
+    src/Viewport.cpp
+    src/Renderer.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
@@ -35,8 +37,10 @@ target_link_options(${PROJECT_NAME} PRIVATE
     -Wl,--gc-sections -s
     -Wl,-z,noseparate-code
     -Wl,--build-id=none
+    -static-libgcc
+    -static-libstdc++
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE X11 Xrandr GL m)
+target_link_libraries(${PROJECT_NAME} PRIVATE X11 Xrandr m)
 
 target_include_directories(${PROJECT_NAME} PRIVATE include)

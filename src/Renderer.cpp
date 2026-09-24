@@ -1,4 +1,5 @@
 #include "Renderer.hpp"
+#include "Input.hpp"
 #include "LevelParser.hpp"
 
 #include <array>
@@ -11,27 +12,44 @@
 #include <unistd.h>
 
 #include <viewporter-client-protocol.h>
+#include <wayland-client-protocol.h>
 #include <xdg-shell-client-protocol.h>
 
 namespace {
 
+// we dont use these, but wayland still wants us to define them
+void ignoreGlobalRemove(void *, wl_registry *, uint32_t) {}
+void ignoreToplevelConfigure(void *, xdg_toplevel *, int32_t, int32_t, wl_array *) {}
+void ignoreKeymap(void *, wl_keyboard *, uint32_t, int32_t, uint32_t) {}
+void ignoreKeyboardEnter(void *, wl_keyboard *, uint32_t, wl_surface *, wl_array *) {}
+void ignoreModifiers(void *, wl_keyboard *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t) {}
+void ignoreRepeatInfo(void *, wl_keyboard *, int32_t, int32_t) {}
+
 const wl_registry_listener registry_listener = {
     Renderer::handleGlobal,
-    Renderer::handleGlobalRemove,
+    ignoreGlobalRemove,
 };
 
 const xdg_wm_base_listener shell_listener = {Renderer::handlePing};
 
 const xdg_surface_listener shell_surface_listener = {Renderer::handleSurfaceConfigure};
 
-const xdg_toplevel_listener toplevel_listener = {Renderer::handleToplevelConfigure,
+const xdg_toplevel_listener toplevel_listener = {ignoreToplevelConfigure,
                                                  Renderer::handleToplevelClose};
 
 const wl_callback_listener frame_listener = {Renderer::handleFrame};
 
+// positional, in wl_keyboard_listener's declared order: keymap, enter, leave, key, modifiers,
+// repeat_info
+const wl_keyboard_listener keyboard_listener = {
+    ignoreKeymap,        ignoreKeyboardEnter, Renderer::handleKeyboardLeave,
+    Renderer::handleKey, ignoreModifiers,     ignoreRepeatInfo,
+};
+
+const wl_seat_listener seat_listener = {Renderer::handleSeat};
+
 } // namespace
 
-// owns a POSIX shared-memory framebuffer shared with the compositor.
 class ShmBuffer {
   public:
     ShmBuffer(wl_shm *shm, int width, int height);
@@ -100,8 +118,8 @@ ShmBuffer::~ShmBuffer() {
 }
 
 Renderer::Renderer(const char *title, const char *app_id, int target_width, int target_height,
-                   Viewport *game_viewport)
-    : game_viewport(game_viewport) {
+                   Viewport *game_viewport, Input *input)
+    : game_viewport(game_viewport), input(input) {
     display = wl_display_connect(nullptr);
     assert(display);
 
@@ -116,6 +134,10 @@ Renderer::Renderer(const char *title, const char *app_id, int target_width, int 
     assert(shm);
     assert(shell);
     xdg_wm_base_add_listener(shell, &shell_listener, this);
+
+    if (seat) {
+        wl_seat_add_listener(seat, &seat_listener, this);
+    }
 
     surface = wl_compositor_create_surface(compositor);
     assert(surface);
@@ -180,6 +202,12 @@ Renderer::~Renderer() {
     }
     if (registry) {
         wl_registry_destroy(registry);
+    }
+    if (seat) {
+        wl_seat_destroy(seat);
+    }
+    if (keyboard) {
+        wl_keyboard_destroy(keyboard);
     }
     if (display) {
         wl_display_flush(display);
@@ -275,6 +303,8 @@ void Renderer::onGlobal(wl_registry *registry, uint32_t name, const char *interf
     } else if (strcmp(interface, wp_viewporter_interface.name) == 0) {
         viewporter = static_cast<wp_viewporter *>(
             wl_registry_bind(registry, name, &wp_viewporter_interface, 1));
+    } else if (strcmp(interface, wl_seat_interface.name) == 0) {
+        seat = static_cast<wl_seat *>(wl_registry_bind(registry, name, &wl_seat_interface, 1));
     }
 }
 
@@ -282,8 +312,6 @@ void Renderer::handleGlobal(void *data, wl_registry *registry, uint32_t name, co
                             uint32_t version) {
     static_cast<Renderer *>(data)->onGlobal(registry, name, interface, version);
 }
-
-void Renderer::handleGlobalRemove(void *, wl_registry *, uint32_t) {}
 
 void Renderer::handlePing(void *, xdg_wm_base *base, uint32_t serial) {
     xdg_wm_base_pong(base, serial);
@@ -294,17 +322,37 @@ void Renderer::handleSurfaceConfigure(void *data, xdg_surface *surface, uint32_t
     xdg_surface_ack_configure(surface, serial);
 }
 
-void Renderer::handleToplevelConfigure(void *, xdg_toplevel *, int32_t, int32_t, wl_array *) {}
-
 void Renderer::handleToplevelClose(void *data, xdg_toplevel *) {
     static_cast<Renderer *>(data)->closed = true;
 }
 
-void Renderer::handleFrame(void *data, wl_callback *callback, uint32_t) {
-    Renderer *self = static_cast<Renderer *>(data);
-
+void Renderer::onFrame(wl_callback *callback) {
     wl_callback_destroy(callback);
-    self->frame_callback = nullptr;
+    frame_callback = nullptr;
 
-    self->redraw();
+    redraw();
+}
+
+void Renderer::handleFrame(void *data, wl_callback *callback, uint32_t) {
+    static_cast<Renderer *>(data)->onFrame(callback);
+}
+
+void Renderer::onSeat(wl_seat *seat, uint32_t capabilities) {
+    if (!keyboard && capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
+        keyboard = wl_seat_get_keyboard(seat);
+        wl_keyboard_add_listener(keyboard, &keyboard_listener, this);
+    }
+}
+
+void Renderer::handleSeat(void *data, wl_seat *seat, uint32_t capabilities) {
+    static_cast<Renderer *>(data)->onSeat(seat, capabilities);
+}
+
+void Renderer::handleKeyboardLeave(void *data, wl_keyboard *, uint32_t, wl_surface *) {
+    static_cast<Renderer *>(data)->input->onFocusLost();
+}
+
+void Renderer::handleKey(void *data, wl_keyboard *, uint32_t, uint32_t, uint32_t key,
+                         uint32_t state) {
+    static_cast<Renderer *>(data)->input->onKey(key, state);
 }

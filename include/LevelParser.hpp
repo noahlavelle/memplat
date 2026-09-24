@@ -1,6 +1,4 @@
-// LevelParser.h
-#ifndef LEVELPARSER_H
-#define LEVELPARSER_H
+#pragma once
 
 #include "ByteReader.hpp"
 #include <cstddef>
@@ -31,12 +29,11 @@ class LevelParser {
 
     ByteReader reader;
     LevelBuffer buffers[2];
-    int acc_x = 0;
+    // only ever accumulates forward through the level binary; never negative
+    unsigned int acc_x = 0;
 
     void loadObject(std::byte coordinate_byte, std::byte object_byte);
     void parseReservedRow(int x, int y, int type, int data);
     void parseSingleTile(int x, int y, int tile);
     void parseMetaTile(int x, int y, int metatile, int data);
 };
-
-#endif // LEVELPARSER_H

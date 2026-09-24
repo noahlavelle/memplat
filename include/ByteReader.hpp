@@ -1,6 +1,4 @@
-// ByteReader.h
-#ifndef BYTEREADER_H
-#define BYTEREADER_H
+#pragma once
 
 #include <cstddef>
 #include <cstdio>
@@ -28,5 +26,3 @@ class ByteReader {
     explicit ByteReader(FILE *stream) : stream(stream) {}
     FILE *stream;
 };
-
-#endif // BYTEREADER_H

@@ -65,6 +65,7 @@ set(
     src/ByteReader.cpp
     src/Viewport.cpp
     src/Renderer.cpp
+    src/Input.cpp
     src/Alloc.cpp
     ${GENERATED_PROTOCOL_SOURCES}
 )

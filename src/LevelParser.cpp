@@ -41,7 +41,7 @@ LevelParser LevelParser::create(ByteReader reader) {
 }
 
 bool LevelParser::loadNextScreen() {
-    std::optional<int> screen_index;
+    std::optional<unsigned int> screen_index;
 
     while (true) {
         // coordinate byte: xxxxyyyy (peeked, not consumed until we know it's ours)
@@ -55,7 +55,7 @@ bool LevelParser::loadNextScreen() {
         }
 
         int x = getHigh(*coordinate_byte);
-        int candidate_screen = (acc_x + x) / SCREEN_TILE_WIDTH;
+        unsigned int candidate_screen = (acc_x + x) / SCREEN_TILE_WIDTH;
 
         if (!screen_index) {
             screen_index = candidate_screen;

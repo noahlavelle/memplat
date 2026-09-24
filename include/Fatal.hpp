@@ -1,16 +1,11 @@
-// Fatal.h
-#ifndef FATAL_H
-#define FATAL_H
+#pragma once
 
 #include <cstdio>
 #include <cstdlib>
 
-// prints msg to stderr and aborts; unlike assert(), never compiled out by NDEBUG. Use for
-// data-validation failures that must always be fatal (e.g. malformed level files), as opposed
-// to assert()'s programmer-invariant checks.
+// prints msg to stderr and aborts; not removed out by NDEBUG. Use for validation failures that must
+// always be fatal (e.g. malformed level files)
 [[noreturn]] inline void fatal(const char *msg) {
     fprintf(stderr, "fatal: %s\n", msg);
     abort();
 }
-
-#endif // FATAL_H

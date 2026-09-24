@@ -2,6 +2,7 @@
 #include <optional>
 
 #include "ByteReader.hpp"
+#include "Input.hpp"
 #include "LevelParser.hpp"
 #include "Renderer.hpp"
 #include "Viewport.hpp"
@@ -29,14 +30,23 @@ int main(int argc, char **argv) {
     LevelParser parser = LevelParser::create(std::move(*reader));
 
     Viewport viewport(parser);
-    Renderer renderer("memplat", "memplat", 1280, 1200, &viewport);
+    Input input;
+    Renderer renderer("memplat", "memplat", 1280, 1200, &viewport, &input);
     if (!renderer.ok()) {
         fprintf(stderr, "startup failed: renderer initialization failed\n");
         return 1;
     }
 
-    while (renderer.dispatch()) {
-        viewport.advance(1);
+    while (true) {
+        input.beginFrame();
+
+        if (!renderer.dispatch()) {
+            break;
+        }
+
+        if (input.held & INPUT_RIGHT) {
+            viewport.advance(1);
+        }
     }
 
     return 0;

@@ -1,6 +1,5 @@
 #include "LevelParser.hpp"
 #include "ByteReader.hpp"
-#include "Errors.hpp"
 #include <cstddef>
 #include <optional>
 
@@ -30,14 +29,21 @@ int getMetatileHigh(int d) { return (d >> METATILE_SIZE_SHIFT) & METATILE_SIZE_M
 int getMetatileLow(int d) { return d & METATILE_SIZE_MASK; }
 } // namespace
 
-LevelParser::LevelParser(ByteReader reader) : reader(std::move(reader)) {
+std::optional<LevelParser> LevelParser::create(ByteReader reader) {
+    LevelParser parser(std::move(reader));
+
     // populate both buffer slots on load
-    if (loadNextScreen()) {
-        loadNextScreen();
+    auto first = parser.loadNextScreen();
+    if (!first) {
+        return std::nullopt;
     }
+    if (*first && !parser.loadNextScreen()) {
+        return std::nullopt;
+    }
+    return parser;
 }
 
-bool LevelParser::loadNextScreen() {
+std::optional<bool> LevelParser::loadNextScreen() {
     std::optional<int> screen_index;
 
     while (true) {
@@ -50,8 +56,7 @@ bool LevelParser::loadNextScreen() {
                 return false;
             }
             // we loaded data, so the sudden eof is expected
-            throw LevelParseError("unexpected end of file while reading coordinate byte",
-                                  reader.position());
+            return std::nullopt;
         }
         if (static_cast<int>(*coordinate_byte) == TERMINATOR) {
             reader.consume();
@@ -76,8 +81,7 @@ bool LevelParser::loadNextScreen() {
         // object byte: ttttdddd
         auto object_byte = reader.consume();
         if (!object_byte) {
-            throw LevelParseError("unexpected end of file while reading object byte",
-                                  reader.position());
+            return std::nullopt;
         }
 
         loadObject(*coordinate_byte, *object_byte);

@@ -1,11 +1,5 @@
-#include <cstdint>
 #include <cstdio>
-#include <exception>
-#include <fcntl.h>
 #include <optional>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <vector>
 
 #include "ByteReader.hpp"
 #include "LevelParser.hpp"
@@ -19,41 +13,35 @@ Start resolving metatiles to tiles
 Write these resolved tiles onto the grid (will have to consider the bounding box of the metatile?)
 Come up with a format for tiles and metatiles
 Add the renderer, to stream from the screen and draw whatever tile is at each position
+Check if the colour mode is available, falling back to 32 bit colour if not
 */
 
-const int REFRESH_RATE = 60;
+const int WINDOW_WIDTH = 1000;
+const int WINDOW_HEIGHT = 1000;
 
 int main(int argc, char **argv) {
-    RGFW_window *win = nullptr;
-    RGFW_surface *surface = nullptr;
-    std::vector<uint8_t> pixels;
-    std::optional<LevelParser> parser;
-    std::optional<Viewport> viewport;
-
-    try {
-        win = initWindow();
-        pixels.resize(static_cast<size_t>(WINDOW_WIDTH) * WINDOW_HEIGHT * 3);
-        surface = createFrameSurface(win, pixels);
-
-        auto reader = ByteReader::open("./data/levels/1-1.lvl");
-        parser.emplace(std::move(reader));
-        viewport.emplace(*parser);
-    } catch (const std::exception &e) {
-        fprintf(stderr, "startup failed: %s\n", e.what());
+    std::optional<ByteReader> reader = ByteReader::open("./data/levels/1-1.lvl");
+    if (!reader) {
+        fprintf(stderr, "failed to load level\n");
         return 1;
     }
 
-    while (!windowShouldClose(win)) {
-        pollEvents();
-        viewport->advance(1);
-        renderFrame(*viewport, win, surface, pixels);
-
-        usleep(1000000 / REFRESH_RATE);
+    std::optional<LevelParser> parser = LevelParser::create(std::move(*reader));
+    if (!parser) {
+        fprintf(stderr, "failed to load level\n");
+        return 1;
     }
 
-    freeSurface(surface);
-    closeWindow(win);
-    shutdownRenderer();
+    Viewport viewport(*parser);
+    Renderer renderer("memplat", "memplat", 1280, 1200, &viewport);
+    if (!renderer.ok()) {
+        fprintf(stderr, "startup failed: renderer initialization failed\n");
+        return 1;
+    }
+
+    while (renderer.dispatch()) {
+        viewport.advance(1);
+    }
 
     return 0;
 }

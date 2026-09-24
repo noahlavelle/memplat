@@ -1,13 +1,10 @@
 #include "ByteReader.hpp"
-#include "Errors.hpp"
-#include <cerrno>
-#include <cstring>
 #include <optional>
 
-ByteReader ByteReader::open(const char *path) {
+std::optional<ByteReader> ByteReader::open(const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) {
-        throw FileError(path, std::strerror(errno));
+        return std::nullopt;
     }
     return ByteReader(f);
 }
@@ -25,6 +22,5 @@ std::optional<std::byte> ByteReader::consume() {
     if (c == EOF) {
         return std::nullopt;
     }
-    ++offset;
     return static_cast<std::byte>(c);
 }

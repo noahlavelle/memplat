@@ -17,8 +17,8 @@ Add the renderer, to stream from the screen and draw whatever tile is at each po
 Check if the colour mode is available, falling back to 32 bit colour if not
 */
 
-const int WINDOW_WIDTH = 1000;
-const int WINDOW_HEIGHT = 1000;
+const int WINDOW_WIDTH = BUFFER_WIDTH * 3;
+const int WINDOW_HEIGHT = BUFFER_HEIGHT * 3;
 
 int main(int argc, char **argv) {
     std::optional<ByteReader> reader = ByteReader::open("./data/levels/1-1.lvl");
@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
 
     Viewport viewport(parser);
     Input input;
-    Renderer renderer("memplat", "memplat", 1280, 1200, &viewport, &input);
+    Renderer renderer("memplat", "memplat", WINDOW_WIDTH, WINDOW_HEIGHT, &viewport, &input);
     if (!renderer.ok()) {
         fprintf(stderr, "startup failed: renderer initialization failed\n");
         return 1;

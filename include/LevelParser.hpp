@@ -5,7 +5,6 @@
 #include "ByteReader.hpp"
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 
 using TileRef = uint8_t;
 
@@ -19,12 +18,12 @@ struct LevelBuffer {
 
 class LevelParser {
   public:
-    // returns std::nullopt if the level data is malformed or truncated
-    static std::optional<LevelParser> create(ByteReader reader);
+    // aborts if the level data is malformed or truncated
+    static LevelParser create(ByteReader reader);
 
-    // true if a new screen was loaded, false at a clean end of file, and std::nullopt if the
-    // level data was malformed or truncated
-    std::optional<bool> loadNextScreen();
+    // true if a new screen was loaded, false at a clean end of file (aborts on malformed or
+    // truncated data instead of returning an error)
+    bool loadNextScreen();
     TileRef tileAt(int slot, int col, int row) const;
 
   private:

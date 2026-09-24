@@ -26,13 +26,9 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    std::optional<LevelParser> parser = LevelParser::create(std::move(*reader));
-    if (!parser) {
-        fprintf(stderr, "failed to load level\n");
-        return 1;
-    }
+    LevelParser parser = LevelParser::create(std::move(*reader));
 
-    Viewport viewport(*parser);
+    Viewport viewport(parser);
     Renderer renderer("memplat", "memplat", 1280, 1200, &viewport);
     if (!renderer.ok()) {
         fprintf(stderr, "startup failed: renderer initialization failed\n");

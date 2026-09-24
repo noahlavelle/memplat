@@ -1,5 +1,6 @@
 #include "LevelParser.hpp"
 #include "ByteReader.hpp"
+#include "Fatal.hpp"
 #include <cstddef>
 #include <optional>
 
@@ -29,42 +30,28 @@ int getMetatileHigh(int d) { return (d >> METATILE_SIZE_SHIFT) & METATILE_SIZE_M
 int getMetatileLow(int d) { return d & METATILE_SIZE_MASK; }
 } // namespace
 
-std::optional<LevelParser> LevelParser::create(ByteReader reader) {
+LevelParser LevelParser::create(ByteReader reader) {
     LevelParser parser(std::move(reader));
 
     // populate both buffer slots on load
-    auto first = parser.loadNextScreen();
-    if (!first) {
-        return std::nullopt;
-    }
-    if (*first && !parser.loadNextScreen()) {
-        return std::nullopt;
+    if (parser.loadNextScreen()) {
+        parser.loadNextScreen();
     }
     return parser;
 }
 
-std::optional<bool> LevelParser::loadNextScreen() {
+bool LevelParser::loadNextScreen() {
     std::optional<int> screen_index;
 
     while (true) {
         // coordinate byte: xxxxyyyy (peeked, not consumed until we know it's ours)
         auto coordinate_byte = reader.peek();
         if (!coordinate_byte) {
-            if (!screen_index) {
-                // nothing loaded yet, so a terminator is not expected
-                buffers[((acc_x / SCREEN_TILE_WIDTH) + 1) & 1] = LevelBuffer{};
-                return false;
-            }
-            // we loaded data, so the sudden eof is expected
-            return std::nullopt;
+            fatal("malformed level data: unexpected end of file, expected coordinate byte");
         }
         if (static_cast<int>(*coordinate_byte) == TERMINATOR) {
             reader.consume();
-            if (!screen_index) {
-                buffers[((acc_x / SCREEN_TILE_WIDTH) + 1) & 1] = LevelBuffer{};
-                return false;
-            }
-            return true;
+            return false;
         }
 
         int x = getHigh(*coordinate_byte);
@@ -81,7 +68,7 @@ std::optional<bool> LevelParser::loadNextScreen() {
         // object byte: ttttdddd
         auto object_byte = reader.consume();
         if (!object_byte) {
-            return std::nullopt;
+            fatal("malformed level data: unexpected end of file, expected object byte");
         }
 
         loadObject(*coordinate_byte, *object_byte);

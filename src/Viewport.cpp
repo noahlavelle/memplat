@@ -13,10 +13,7 @@ void Viewport::advance(int d_pixel_x) {
     int displayed_screen = course_x / SCREEN_TILE_WIDTH;
 
     if ((next_pixel_x / 16) / SCREEN_TILE_WIDTH != displayed_screen) {
-        // treat a parse error the same as a clean end of file: the error itself is already
-        // logged by loadNextScreen(), there's just no further screen to show
-        auto loaded = parser.loadNextScreen();
-        if (!loaded || !*loaded) {
+        if (!parser.loadNextScreen()) {
             at_end = true;
         }
     }

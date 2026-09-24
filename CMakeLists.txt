@@ -67,6 +67,8 @@ set(
     src/Renderer.cpp
     src/Input.cpp
     src/Alloc.cpp
+    src/Palette.cpp
+    src/PaletteMapping.cpp
     ${GENERATED_PROTOCOL_SOURCES}
 )
 

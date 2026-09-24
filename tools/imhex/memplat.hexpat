@@ -8,6 +8,16 @@
 
 import std.mem;
 
+// --- Level header ---------------------------------------------------------
+
+bitfield Header {
+    archetype : 3; // BG/UI palette + metatile set, indexed into a fixed table (max 8).
+    hard_mode : 1; // same archetype, but swaps one enemy palette slot for a tougher option.
+    timer     : 2; // enum, values TBD.
+    air_spawn : 1; // 0 = ground, 1 = air (drop-in).
+    autowalk  : 1; // 0 = controllable, 1 = autowalk.
+};
+
 // --- Coordinate byte ----------------------------------------------------
 
 bitfield Coord {
@@ -77,6 +87,7 @@ struct Entry {
 // --- Whole level: a run of entries up to the terminator (or EOF) --------
 
 struct Level {
+    Header header;
     Entry entries[while(!std::mem::eof())];
 };
 

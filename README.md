@@ -5,7 +5,25 @@ constraints similar to the NES.
 
 ## LEVEL FORMAT
 
-Each level is a flat list of 2-byte object entries:
+### Header
+
+Every level starts with a single header byte:
+
+```
+AAABCCDE
+```
+
+- `AAA` — Archetype (3 bits): picks the level's BG/UI palette set and
+  metatile palette, indexed into a fixed table (max 8 archetypes).
+- `B` — Hard mode (1 bit): same archetype, but swaps one enemy palette
+  slot for a tougher option (e.g. Bullet Bill in for Goomba).
+- `CC` — Timer (2 bits): enum, values TBD.
+- `D` — Spawn position (1 bit): `0` ground, `1` air (drop-in).
+- `E` — Movement (1 bit): `0` controllable, `1` autowalk.
+
+### Object entries
+
+After the header, each level is a flat list of 2-byte object entries:
 
 ```
 xxxxyyyytttttttt
@@ -104,3 +122,23 @@ For now consider sprites as one tile only. We have a spritemap file made up
 of an 8x8 grid, defining every sprite. The sprite id is a hex ref to its
 position in this grid. Like metatiles and tiles, we have a behaviour table
 to map a sprite id in a given slot to implemented behaviour.
+
+## PALETTES
+
+The pixel buffer uses the RGB565 format, so palettes must encode colours matching
+this. Each pixel in a sprite or tile represents colour with 2 bits, so palettes
+can only fill 4 different options (00 for BG, 01 & 10 & 11 for actual colours).
+The game can hold 8 palettes at once, 4 for background and 4 for sprites. The
+exact combo of palettes loaded is determined in header data at the start of the
+level. The binary data for each sprite and tile begins with a three bit number,
+determining which palette slot it pulls its colours from. The slots are organised
+as such:
+
+0 - Player Character
+1 - Enemy Group A
+2 - Enemy Group B
+3 - Enemy Group C
+4 - BG Main Terrain
+5 - BG Scenery
+6 - BG Interactive Tiles
+7 - UI & Special

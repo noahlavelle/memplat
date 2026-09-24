@@ -1,6 +1,7 @@
 #include "Renderer.hpp"
 #include "Input.hpp"
 #include "LevelParser.hpp"
+#include "Palette.hpp"
 
 #include <array>
 #include <cassert>
@@ -118,8 +119,8 @@ ShmBuffer::~ShmBuffer() {
 }
 
 Renderer::Renderer(const char *title, const char *app_id, int target_width, int target_height,
-                   Viewport *game_viewport, Input *input)
-    : game_viewport(game_viewport), input(input) {
+                   Viewport *game_viewport, Input *input, PaletteMemory *palettes)
+    : game_viewport(game_viewport), input(input), palettes(palettes) {
     display = wl_display_connect(nullptr);
     assert(display);
 
@@ -240,20 +241,15 @@ void Renderer::redraw() {
         for (int col = 0; col <= BUFFER_WIDTH / VIEWPORT_TILE_SIZE; ++col) {
             TileRef tile = game_viewport->tileAt(col, row);
 
-            uint8_t r, g, b;
-            if (tile == 0) {
-                r = row * 10;
-                g = 128;
-                b = 235; // light blue
-            } else {
-                float shade = static_cast<float>(tile) / 15.0f;
-                r = static_cast<uint8_t>((shade / 2.0f) * 255.0f);
-                g = static_cast<uint8_t>(shade * 255.0f);
-                b = 0; // shades of green
+            // TODO: get the target palette from a sprite / tile header; for now use BG OVERWORLD
+            // GROUND
+            auto palette = palettes->getPalette(4);
+            int colour_index = 0;
+            if (tile) {
+                colour_index = (tile % 3) + 1;
             }
-
             // RGB565: 5 bits red, 6 bits green, 5 bits blue
-            uint16_t pixel = static_cast<uint16_t>(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+            uint16_t pixel = static_cast<uint16_t>(palette.color_rgb[colour_index]);
             std::array<uint16_t, VIEWPORT_TILE_SIZE> tile_row;
             // currently tiles are solid colour blocks so this is acceptable
             tile_row.fill(pixel);

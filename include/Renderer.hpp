@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "Palette.hpp"
 #include "Viewport.hpp"
 
 struct wl_display;
@@ -35,7 +36,7 @@ class Renderer {
     // the underlying buffer width and height are scaled up to match the targets here
     // the target dimensions currently need to be multiples of the buffer size
     Renderer(const char *title, const char *app_id, int target_width, int target_height,
-             Viewport *game_viewport, Input *input);
+             Viewport *game_viewport, Input *input, PaletteMemory *palettes);
     ~Renderer();
 
     Renderer(const Renderer &) = delete;
@@ -91,4 +92,5 @@ class Renderer {
     std::unique_ptr<ShmBuffer> buffer;
     Viewport *game_viewport = nullptr;
     Input *input = nullptr;
+    PaletteMemory *palettes = nullptr;
 };

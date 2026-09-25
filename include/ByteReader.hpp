@@ -21,6 +21,7 @@ class ByteReader {
 
     std::optional<std::byte> peek() const;
     std::optional<std::byte> consume();
+    void rewind();
 
   private:
     explicit ByteReader(FILE *stream) : stream(stream) {}

@@ -26,3 +26,21 @@ extern "C" char *__cxa_demangle(const char *, char *, std::size_t *, int *status
     }
     return nullptr;
 }
+
+namespace std {
+
+[[noreturn]] void __throw_length_error(const char *) { std::abort(); }
+[[noreturn]] void __throw_out_of_range(const char *) { std::abort(); }
+[[noreturn]] void __throw_out_of_range_fmt(const char *, ...) { std::abort(); }
+[[noreturn]] void __throw_logic_error(const char *) { std::abort(); }
+[[noreturn]] void __throw_invalid_argument(const char *) { std::abort(); }
+[[noreturn]] void __throw_domain_error(const char *) { std::abort(); }
+[[noreturn]] void __throw_range_error(const char *) { std::abort(); }
+[[noreturn]] void __throw_overflow_error(const char *) { std::abort(); }
+[[noreturn]] void __throw_underflow_error(const char *) { std::abort(); }
+[[noreturn]] void __throw_bad_alloc() { std::abort(); }
+[[noreturn]] void __throw_bad_cast() { std::abort(); }
+[[noreturn]] void __throw_bad_typeid() { std::abort(); }
+[[noreturn]] void __throw_bad_exception() { std::abort(); }
+
+} // namespace std

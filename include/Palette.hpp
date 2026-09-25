@@ -21,4 +21,9 @@ class PaletteMemory {
   private:
     ByteReader reader;
     Palette palettes[8];
+
+    // consume the next 8 bytes, mapping them to a palette
+    Palette readPalette();
+    // discard the next 8 bytes
+    void discardPalette();
 };

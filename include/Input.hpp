@@ -17,8 +17,8 @@ class Input {
     void onKey(uint32_t keycode, uint32_t state);
     // reset both bit masks
     void onFocusLost();
-    // prepares the held and pressed bit mask for the upcoming frame
-    void beginFrame();
+    // prepares bit masks for the upcoming frame
+    void beginNextFrame();
 
     uint8_t held = 0;
     uint8_t pressed = 0;

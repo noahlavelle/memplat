@@ -4,9 +4,9 @@
 #include <algorithm>
 #include <functional>
 
-namespace {
-// consume the next 8 bytes, mapping them to a palette
-Palette readPalette(ByteReader &reader) {
+PaletteMemory::PaletteMemory(ByteReader reader) : reader(std::move(reader)) {}
+
+Palette PaletteMemory::readPalette() {
     auto palette = Palette{0};
 
     for (int i = 0; i < 4; ++i) {
@@ -25,21 +25,18 @@ Palette readPalette(ByteReader &reader) {
     return palette;
 }
 
-// discard the next 8 bytes
-void discardPalette(ByteReader &reader) {
+void PaletteMemory::discardPalette() {
     for (int i = 0; i < 8; ++i) {
         if (!reader.consume()) {
             fatal("malformed palette data");
         }
     }
 }
-} // namespace
-
-PaletteMemory::PaletteMemory(ByteReader reader) : reader(std::move(reader)) {}
 
 Palette PaletteMemory::getPalette(unsigned int slot) const { return palettes[slot]; }
 
 void PaletteMemory::loadPalettes(std::vector<std::pair<uint8_t, uint8_t>> slot_mapping) {
+    reader.rewind();
     // sorted palette id -> slot id, so we can trust this to walk the palettes file in order
     std::sort(slot_mapping.begin(), slot_mapping.end(), std::ranges::greater());
 
@@ -48,7 +45,7 @@ void PaletteMemory::loadPalettes(std::vector<std::pair<uint8_t, uint8_t>> slot_m
         auto [index, slot] = slot_mapping.back();
 
         if (palette_at == index) {
-            Palette p = readPalette(reader);
+            Palette p = readPalette();
             palettes[slot] = p;
             slot_mapping.pop_back();
 
@@ -58,7 +55,7 @@ void PaletteMemory::loadPalettes(std::vector<std::pair<uint8_t, uint8_t>> slot_m
                 slot_mapping.pop_back();
             }
         } else {
-            discardPalette(reader);
+            discardPalette();
         }
 
         ++palette_at;
@@ -70,16 +67,12 @@ void PaletteMemory::replacePalette(uint8_t palette_id, uint8_t slot) {
         fatal("slot out of bounds");
     }
 
-    auto refreshed_reader = ByteReader::open("./data/palettes.clr");
-    if (!refreshed_reader) {
-        fatal("failed to reopen palette reader");
-    }
-
+    reader.rewind();
     for (int i = 0; i <= palette_id; ++i) {
         if (i == palette_id) {
-            palettes[slot] = readPalette(*refreshed_reader);
+            palettes[slot] = readPalette();
         } else {
-            discardPalette(*refreshed_reader);
+            discardPalette();
         }
     }
 }

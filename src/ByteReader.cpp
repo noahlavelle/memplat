@@ -1,4 +1,5 @@
 #include "ByteReader.hpp"
+#include <cstdio>
 #include <optional>
 
 std::optional<ByteReader> ByteReader::open(const char *path) {
@@ -24,3 +25,5 @@ std::optional<std::byte> ByteReader::consume() {
     }
     return static_cast<std::byte>(c);
 }
+
+void ByteReader::rewind() { std::rewind(stream); }

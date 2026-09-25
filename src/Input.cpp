@@ -41,8 +41,4 @@ void Input::onFocusLost() {
     pressed = 0;
 }
 
-void Input::beginFrame() {
-    // anything pressed last frame becomes held; reset pressed
-    held |= pressed;
-    pressed = 0;
-}
+void Input::beginNextFrame() { pressed = 0; }

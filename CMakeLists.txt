@@ -64,6 +64,8 @@ set(
     src/LevelParser.cpp
     src/ByteReader.cpp
     src/Viewport.cpp
+    src/Platform.cpp
+    src/Game.cpp
     src/Renderer.cpp
     src/Input.cpp
     src/Alloc.cpp

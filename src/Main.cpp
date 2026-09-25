@@ -2,9 +2,11 @@
 #include <optional>
 
 #include "ByteReader.hpp"
+#include "Game.hpp"
 #include "Input.hpp"
 #include "LevelParser.hpp"
 #include "Palette.hpp"
+#include "Platform.hpp"
 #include "Renderer.hpp"
 #include "Viewport.hpp"
 
@@ -39,23 +41,11 @@ int main(int argc, char **argv) {
 
     Viewport viewport(parser);
     Input input;
-    Renderer renderer("memplat", "memplat", WINDOW_WIDTH, WINDOW_HEIGHT, &viewport, &input,
-                      &palettes);
-    if (!renderer.ok()) {
-        fprintf(stderr, "startup failed: renderer initialization failed\n");
-        return 1;
-    }
+    Game game(&viewport, &input);
+    Renderer renderer(&viewport, &palettes);
+    Platform platform("memplat", "memplat", WINDOW_WIDTH, WINDOW_HEIGHT, &input, &game, &renderer);
 
-    while (true) {
-        input.beginFrame();
-
-        if (!renderer.dispatch()) {
-            break;
-        }
-
-        if (input.held & INPUT_RIGHT) {
-            viewport.advance(1);
-        }
+    while (platform.dispatch()) {
     }
 
     return 0;

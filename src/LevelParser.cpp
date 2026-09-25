@@ -14,10 +14,10 @@ Decodes according to the format currently defined in readme.
 const int TERMINATOR = 0xFF;
 // empty type id, following data should be treated as a single tile id
 const int SINGLE_TILE_MODE = 0x0;
-// rows above reserved, inclusive; top row only
-const int RESERVED_TOP_CUTOFF = 0xF;
-// rows below reserved, inclusive; bottom two rows, 0-1
-const int RESERVED_BOTTOM_CUTOFF = 0x1;
+// reserved if y <= this value; currently just the top row (y = 0)
+const int RESERVED_TOP_CUTOFF = 0x0;
+// reserved if y >= this value; currently the bottom two rows (y = 14, 15)
+const int RESERVED_BOTTOM_CUTOFF = 0xE;
 
 namespace {
 // byte masks, splits byte groups into high and low parts; e.g x & y
@@ -90,6 +90,7 @@ bool LevelParser::loadNextScreen() {
 
         if (!screen_index) {
             screen_index = candidate_screen;
+            buffers[candidate_screen & 1] = LevelBuffer{};
         } else if (candidate_screen != *screen_index) {
             return true;
         }
@@ -120,7 +121,7 @@ void LevelParser::loadObject(std::byte coordinate_byte, std::byte object_byte) {
     acc_x += x;
     int column = acc_x % SCREEN_TILE_WIDTH;
 
-    if (y >= RESERVED_TOP_CUTOFF || y <= RESERVED_BOTTOM_CUTOFF) {
+    if (y >= RESERVED_BOTTOM_CUTOFF || y <= RESERVED_TOP_CUTOFF) {
         parseReservedRow(column, y, type, data);
     } else if (type == SINGLE_TILE_MODE) {
         parseSingleTile(column, y, data);

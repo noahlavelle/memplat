@@ -1,5 +1,4 @@
 #include <cstdio>
-#include <optional>
 
 #include "ByteReader.hpp"
 #include "Game.hpp"
@@ -10,18 +9,18 @@
 #include "Renderer.hpp"
 #include "Viewport.hpp"
 
-/*
-TODO:
-Create concept of metatile
-Start resolving metatiles to tiles
-Write these resolved tiles onto the grid (will have to consider the bounding box of the metatile?)
-Come up with a format for tiles and metatiles
-Add the renderer, to stream from the screen and draw whatever tile is at each position
-Check if the colour mode is available, falling back to 32 bit colour if not
-*/
-
 const int WINDOW_WIDTH = BUFFER_WIDTH * 3;
 const int WINDOW_HEIGHT = BUFFER_HEIGHT * 3;
+
+// replace pretty printed throws on libstdc++ defaults like std::bad_alloc with aborts as to not
+// pull in weighty exception mechanics
+void *operator new(std::size_t size) {
+    void *p = std::malloc(size ? size : 1);
+    if (!p) {
+        std::abort();
+    }
+    return p;
+}
 
 int main(int argc, char **argv) {
     auto palette_reader = ByteReader::open("./data/palettes.clr");

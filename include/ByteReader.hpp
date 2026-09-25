@@ -1,29 +1,32 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdio>
 #include <optional>
 
 class ByteReader {
   public:
-    // returns std::nullopt if the file cannot be opened
     static std::optional<ByteReader> open(const char *path);
 
-    ~ByteReader() {
-        if (stream) {
-            fclose(stream);
-        }
-    }
+    ~ByteReader();
 
     ByteReader(const ByteReader &) = delete;
     ByteReader &operator=(const ByteReader &) = delete;
-    ByteReader(ByteReader &&other) : stream(other.stream) { other.stream = nullptr; }
+    ByteReader(ByteReader &&other) : data(other.data), size(other.size), pos(other.pos) {
+        other.data = nullptr;
+        other.size = 0;
+    }
 
     std::optional<std::byte> peek() const;
+    std::optional<std::byte> at(size_t offset) const;
     std::optional<std::byte> consume();
     void rewind();
+    void seek(size_t p);
+    bool inBounds(size_t offset) const;
 
   private:
-    explicit ByteReader(FILE *stream) : stream(stream) {}
-    FILE *stream;
+    explicit ByteReader(const std::byte *data, size_t size);
+
+    const std::byte *data;
+    size_t size;
+    size_t pos = 0;
 };

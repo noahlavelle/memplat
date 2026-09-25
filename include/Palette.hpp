@@ -1,29 +1,39 @@
 #pragma once
 
 #include "ByteReader.hpp"
+#include <array>
 #include <cstdint>
-#include <vector>
 
 struct Palette {
     uint16_t color_rgb[4];
 };
 
+// 3-bit, one variant per level 'theme'; can be extended with alternate hardmode variants
+enum PaletteArchetype : uint8_t {
+    OVERWORLD = 0,
+    UNDERGROUND = 1,
+    CASTLE = 2,
+    NIGHT_OVERWORLD = 3,
+    SPECIAL_STAGE = 4,
+};
+
+// maps palette ids in palettes file to slot indexes
+using PaletteMapping = std::array<uint8_t, 8>;
+const PaletteMapping &getPaletteMapping(PaletteArchetype archetype);
+
 class PaletteMemory {
   public:
     explicit PaletteMemory(ByteReader reader);
 
-    Palette getPalette(unsigned int slot) const;
-    // mapping should be palette id (index) -> slot index; repeated palette ids are supported
-    void loadPalettes(std::vector<std::pair<uint8_t, uint8_t>> slot_mapping);
-    // in-place overwrite of a single palette; has to reload and scan the palette file so use rarely
+    void loadPalettes(const PaletteMapping &slot_mapping);
     void replacePalette(uint8_t palette_id, uint8_t slot);
+    Palette getPalette(unsigned int slot) const;
 
   private:
-    ByteReader reader;
-    Palette palettes[8];
+    static constexpr size_t PALETTE_BYTES = 8;
 
-    // consume the next 8 bytes, mapping them to a palette
-    Palette readPalette();
-    // discard the next 8 bytes
-    void discardPalette();
+    bool checkId(uint8_t palette_id) const;
+
+    ByteReader reader;
+    PaletteMapping slot_to_id = {};
 };

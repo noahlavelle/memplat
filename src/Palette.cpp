@@ -1,78 +1,58 @@
 #include "Palette.hpp"
 #include "ByteReader.hpp"
 #include "Fatal.hpp"
-#include <algorithm>
-#include <functional>
+#include <cstddef>
+
+namespace {
+// slots: player, enemy A, enemy B, enemy C, terrain, scenery, interactive, ui
+constexpr PaletteMapping MAPPINGS[] = {
+    /* OVERWORLD */ {0, 4, 8, 9, 12, 14, 16, 18},
+    /* UNDERGROUND */ {0, 4, 8, 11, 13, 15, 17, 18},
+    /* CASTLE */ {0, 6, 8, 11, 20, 15, 17, 18},
+    /* NIGHT_OVERWORLD */ {0, 4, 8, 9, 21, 14, 16, 18},
+    /* SPECIAL_STAGE */ {2, 7, 8, 10, 12, 14, 16, 19},
+};
+} // namespace
+
+const PaletteMapping &getPaletteMapping(PaletteArchetype archetype) {
+    if (archetype >= std::size(MAPPINGS)) {
+        fatal("unknown palette archetype");
+    }
+    return MAPPINGS[archetype];
+}
 
 PaletteMemory::PaletteMemory(ByteReader reader) : reader(std::move(reader)) {}
 
-Palette PaletteMemory::readPalette() {
-    auto palette = Palette{0};
+Palette PaletteMemory::getPalette(unsigned int slot) const {
+    size_t beginning = slot_to_id[slot] * PALETTE_BYTES;
 
+    Palette p;
     for (int i = 0; i < 4; ++i) {
-        auto col_high = reader.consume();
-        if (!col_high) {
-            fatal("malformed palette data");
-        }
-        auto col_low = reader.consume();
-        if (!col_low) {
-            fatal("malformed palette data");
-        }
-        uint16_t colour = (static_cast<uint16_t>(*col_high) << 8) | static_cast<uint16_t>(*col_low);
-        palette.color_rgb[i] = colour;
+        p.color_rgb[i] = (std::to_integer<uint16_t>(*reader.at(beginning + i * 2)) << 8) |
+                         std::to_integer<uint16_t>(*reader.at(beginning + i * 2 + 1));
     }
-
-    return palette;
+    return p;
 }
 
-void PaletteMemory::discardPalette() {
-    for (int i = 0; i < 8; ++i) {
-        if (!reader.consume()) {
-            fatal("malformed palette data");
-        }
-    }
+bool PaletteMemory::checkId(uint8_t palette_id) const {
+    return reader.inBounds(static_cast<size_t>(palette_id) * PALETTE_BYTES + PALETTE_BYTES - 1);
 }
 
-Palette PaletteMemory::getPalette(unsigned int slot) const { return palettes[slot]; }
-
-void PaletteMemory::loadPalettes(std::vector<std::pair<uint8_t, uint8_t>> slot_mapping) {
-    reader.rewind();
-    // sorted palette id -> slot id, so we can trust this to walk the palettes file in order
-    std::sort(slot_mapping.begin(), slot_mapping.end(), std::ranges::greater());
-
-    unsigned int palette_at = 0;
-    while (!slot_mapping.empty()) {
-        auto [index, slot] = slot_mapping.back();
-
-        if (palette_at == index) {
-            Palette p = readPalette();
-            palettes[slot] = p;
-            slot_mapping.pop_back();
-
-            // fill any other palettes with the same index
-            while (!slot_mapping.empty() && slot_mapping.back().first == index) {
-                palettes[slot_mapping.back().second] = p;
-                slot_mapping.pop_back();
-            }
-        } else {
-            discardPalette();
+void PaletteMemory::loadPalettes(const PaletteMapping &slot_mapping) {
+    for (uint8_t palette_id : slot_mapping) {
+        if (!checkId(palette_id)) {
+            fatal("palette id out of bounds");
         }
-
-        ++palette_at;
     }
+    slot_to_id = slot_mapping;
 }
 
 void PaletteMemory::replacePalette(uint8_t palette_id, uint8_t slot) {
     if (slot > 7) {
         fatal("slot out of bounds");
     }
-
-    reader.rewind();
-    for (int i = 0; i <= palette_id; ++i) {
-        if (i == palette_id) {
-            palettes[slot] = readPalette();
-        } else {
-            discardPalette();
-        }
+    if (!checkId(palette_id)) {
+        fatal("palette id out of bounds");
     }
+    slot_to_id[slot] = palette_id;
 }

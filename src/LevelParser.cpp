@@ -2,7 +2,6 @@
 #include "ByteReader.hpp"
 #include "Fatal.hpp"
 #include "Palette.hpp"
-#include "PaletteMapping.hpp"
 #include <cstddef>
 #include <optional>
 
